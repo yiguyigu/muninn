@@ -631,7 +631,13 @@ def torch_safe_load(weight):
                 "ultralytics.yolo.data": "ultralytics.data",
             }
         ):  # for legacy 8.0 Classify and Pose models
-            return torch.load(file, map_location="cpu"), file  # load
+            # Explicitly set weights_only=False for Torch>=2.6 while remaining
+            # compatible with older Torch versions that do not support it.
+            try:
+                return torch.load(file, map_location="cpu", weights_only=False), file  # load
+            except TypeError:
+                # Older Torch without weights_only kwarg
+                return torch.load(file, map_location="cpu"), file  # load
 
     except ModuleNotFoundError as e:  # e.name is missing module name
         if e.name == "models":
@@ -652,7 +658,11 @@ def torch_safe_load(weight):
         )
         check_requirements(e.name)  # install missing module
 
-        return torch.load(file, map_location="cpu"), file  # load
+        # Retry load with the same Torch compatibility handling as above.
+        try:
+            return torch.load(file, map_location="cpu", weights_only=False), file  # load
+        except TypeError:
+            return torch.load(file, map_location="cpu"), file  # load
 
 
 def attempt_load_weights(weights, device=None, inplace=True, fuse=False):
